@@ -57,7 +57,11 @@ async def gather_subjects_for_leaves(
         asyncio.create_task(worker(cat)) for cat in categories if cat.get("is_leaf")
     ]
     if tasks:
-        await asyncio.gather(*tasks)
+        try:
+            await asyncio.gather(*tasks)
+        except asyncio.CancelledError:
+            print("gather_subjects_for_leaves cancelled - returning partial results")
+            return results
     return results
 
 
@@ -84,16 +88,11 @@ async def main() -> None:
         print("Traversing categories...")
         all_cats = list(iter_all_categories_with_levels(menu))
 
-        # Fetch subjects for leaves with overall timeout constraint
+        # Fetch subjects for leaves without global wait_for to preserve partial results
         print("Fetching subjects for leaf categories asynchronously...")
-        try:
-            subjects = await asyncio.wait_for(
-                gather_subjects_for_leaves(session, all_cats, concurrency=concurrency),
-                timeout=timeout_s,
-            )
-        except asyncio.TimeoutError:
-            print("Subject fetching timed out - partial data will be saved.")
-            subjects = []
+        subjects = await gather_subjects_for_leaves(
+            session, all_cats, concurrency=concurrency
+        )
 
         # Transform subjects into category-like rows (level+1 under their parent) and append
         if subjects:
