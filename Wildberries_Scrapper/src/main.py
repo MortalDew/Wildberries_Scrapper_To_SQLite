@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 from typing import Any, Dict, List, Optional
+import logging
 
 from .scraper import (
     fetch_main_menu_categories,
@@ -15,6 +16,8 @@ from aiohttp import TCPConnector
 
 
 DEFAULT_MENU_URL = "https://static-basket-01.wb.ru/vol0/data/main-menu-ru-ru-v3.json"
+
+logger = logging.getLogger(__name__)
 
 
 def get_env(name: str, default: Optional[str] = None) -> Optional[str]:
@@ -49,7 +52,7 @@ async def gather_subjects_for_leaves(
                     )
             except Exception as exc:
                 # Swallow per-task errors to keep the run resilient
-                print(
+                logger.warning(
                     f"Failed to fetch subjects for {cat.get('name')} ({cat.get('id')}): {exc}"
                 )
 
@@ -60,12 +63,22 @@ async def gather_subjects_for_leaves(
         try:
             await asyncio.gather(*tasks)
         except asyncio.CancelledError:
-            print("gather_subjects_for_leaves cancelled - returning partial results")
+            logger.warning(
+                "gather_subjects_for_leaves cancelled - returning partial results"
+            )
             return results
     return results
 
 
 async def main() -> None:
+    # Configure logging
+    log_level_name = (get_env("LOG_LEVEL", "INFO") or "INFO").upper()
+    log_level = getattr(logging, log_level_name, logging.INFO)
+    logging.basicConfig(
+        level=log_level,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    )
+
     menu_url = get_env("WB_MENU_URL", DEFAULT_MENU_URL) or DEFAULT_MENU_URL
     db_path = get_env("DB_PATH", os.path.join(os.getcwd(), "wb_categories.sqlite3"))
     timeout_s = float(
@@ -82,14 +95,14 @@ async def main() -> None:
     async with aiohttp.ClientSession(
         connector=connector, timeout=total_timeout
     ) as session:
-        print(f"Fetching main menu from: {menu_url}")
+        logger.info(f"Fetching main menu from: {menu_url}")
         menu = await fetch_main_menu_categories(session, menu_url)
 
-        print("Traversing categories...")
+        logger.info("Traversing categories...")
         all_cats = list(iter_all_categories_with_levels(menu))
 
         # Fetch subjects for leaves without global wait_for to preserve partial results
-        print("Fetching subjects for leaf categories asynchronously...")
+        logger.info("Fetching subjects for leaf categories asynchronously...")
         subjects = await gather_subjects_for_leaves(
             session, all_cats, concurrency=concurrency
         )
@@ -116,10 +129,10 @@ async def main() -> None:
     storage = SQLiteStorage(db_path)
     storage.init_db()
 
-    print("Saving categories (including expanded subjects)...")
+    logger.info("Saving categories (including expanded subjects)...")
     storage.save_categories(all_cats)
 
-    print(f"Done. SQLite at: {db_path}")
+    logger.info(f"Done. SQLite at: {db_path}")
 
 
 if __name__ == "__main__":
