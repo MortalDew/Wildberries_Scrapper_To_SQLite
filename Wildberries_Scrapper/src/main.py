@@ -127,7 +127,6 @@ async def main() -> None:
 
     # Persist categories grouped by top-level
     storage = SQLiteStorage(db_path)
-    storage.init_db()
 
     logger.info("Saving categories (including expanded subjects)...")
     storage.save_categories(all_cats)

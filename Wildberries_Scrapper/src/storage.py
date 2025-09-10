@@ -26,10 +26,6 @@ class SQLiteStorage:
             conn.commit()
             conn.close()
 
-    def init_db(self) -> None:
-        # Tables will be created dynamically per top-level category name
-        pass
-
     def _normalize_table_name(self, name: str) -> str:
         safe = "".join(
             ch if ch.isalnum() or ch == "_" else "_" for ch in (name or "wb").lower()
