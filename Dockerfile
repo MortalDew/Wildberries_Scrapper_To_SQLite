@@ -14,10 +14,10 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY Wildberries_Scrapper/ ./Wildberries_Scrapper/
+COPY src/ ./src/
 
 # Create data directory
 RUN mkdir -p /data
 VOLUME ["/data"]
 
-CMD ["python", "-m", "Wildberries_Scrapper.src.main"] 
+CMD ["python", "-m", "src.main"] 

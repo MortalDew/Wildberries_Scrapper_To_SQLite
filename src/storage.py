@@ -13,10 +13,6 @@ class SQLiteStorage:
     def connect(self):
         conn = sqlite3.connect(self.db_path)
         try:
-            # Pragmas for faster bulk writes while keeping reasonable durability
-            conn.execute("PRAGMA journal_mode=WAL")
-            conn.execute("PRAGMA synchronous=NORMAL")
-            conn.execute("PRAGMA temp_store=MEMORY")
             conn.execute(
                 "PRAGMA cache_size=-20000"
             )  # ~20k pages in memory (~20MB if 1KB pages)
@@ -42,7 +38,8 @@ class SQLiteStorage:
             CREATE TABLE IF NOT EXISTS {table}_categories (
                 id INTEGER,
                 name TEXT,
-                level INTEGER
+                level INTEGER,
+                UNIQUE(id, name, level)
             )
             """
         )
@@ -59,7 +56,7 @@ class SQLiteStorage:
                 table = self._ensure_tables(conn, top_name)
                 conn.execute("BEGIN")
                 conn.executemany(
-                    f"INSERT INTO {table}_categories (id, name, level) VALUES (?, ?, ?)",
+                    f"INSERT OR IGNORE INTO {table}_categories (id, name, level) VALUES (?, ?, ?)",
                     [(it.get("id"), it.get("name"), it.get("level")) for it in items],
                 )
                 conn.execute("COMMIT")

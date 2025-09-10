@@ -1,0 +1,12 @@
+version: "3"
+
+services:
+  app:
+    build: .
+    image: wildberries-scrapper:latest
+    volumes:
+      - ".:/app"
+      - "./data:/data"
+    environment:
+      - LOG_LEVEL=INFO
+    command: python -m src.main
